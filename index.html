@@ -46,16 +46,62 @@
       right: 1.5rem;
       color: #666;
       font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
     
     .score span { color: #4ade80; font-weight: 500; }
+    
+    .theme-toggle {
+      background: #1a1a22;
+      border: 1px solid #2a2a35;
+      color: #888;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    
+    .theme-toggle:hover {
+      background: #2a2a35;
+      color: #fff;
+    }
+    
+    body.light {
+      background: #f0f0f5;
+    }
+    
+    body.light #canvas {
+      background: #f5f5fa;
+      border-color: #ddd;
+    }
+    
+    body.light .theme-toggle {
+      background: #fff;
+      border-color: #ddd;
+      color: #444;
+    }
+    
+    body.light .theme-toggle:hover {
+      background: #eee;
+    }
+    
+    body.light h1 { color: #111; }
+    body.light .subtitle { color: #666; }
+    body.light .score { color: #666; }
+  </style>
   </style>
 </head>
 <body>
   <h1>🕵️ Text Jungle</h1>
   <p class="subtitle">Move mouse through the text to find hidden words</p>
   <canvas id="canvas" width="1000" height="650"></canvas>
-  <div class="score"><span id="found">0</span> / <span id="total">0</span></div>
+  <div class="score">
+    <button class="theme-toggle" id="themeBtn">Light</button>
+    <span><span id="found">0</span> / <span id="total">0</span></span>
+  </div>
 
   <script type="module">
     import { prepare, layout } from 'https://esm.sh/@chenglou/pretext@0.0.4/dist/layout.js';
@@ -67,6 +113,15 @@
 
     const FONT = '14px Inter';
     const LINE_HEIGHT = 19;
+    let isLight = false;
+
+    const themeBtn = document.getElementById('themeBtn');
+    
+    themeBtn.addEventListener('click', () => {
+      isLight = !isLight;
+      document.body.classList.toggle('light', isLight);
+      themeBtn.textContent = isLight ? 'Dark' : 'Light';
+    });
 
     const textBlocks = [];
     let mouseX = -1000;
@@ -134,6 +189,11 @@
     ];
 
     function randomColor() {
+      if (isLight) {
+        const hues = [220, 260, 280, 180, 320, 40, 30, 200];
+        const hue = hues[Math.floor(Math.random() * hues.length)];
+        return `hsl(${hue}, 30%, ${30 + Math.random() * 20}%)`;
+      }
       const hues = [220, 260, 280, 180, 320, 40];
       const hue = hues[Math.floor(Math.random() * hues.length)];
       return `hsl(${hue}, 40%, ${18 + Math.random() * 12}%)`;
@@ -205,7 +265,8 @@
     }
 
     function animate(time) {
-      ctx.fillStyle = '#080810';
+      const bgColor = isLight ? '#f5f5fa' : '#080810';
+      ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (const block of textBlocks) {
@@ -260,7 +321,7 @@
               }
             }
           } else {
-            ctx.fillStyle = '#1a1a22';
+            ctx.fillStyle = isLight ? '#e0e0e5' : '#1a1a22';
             ctx.shadowBlur = 0;
           }
         } else if (block.isSpecial && block.found) {
@@ -269,7 +330,7 @@
           ctx.shadowBlur = 12 + pulse * 8;
           ctx.fillStyle = block.glowColor;
         } else {
-          ctx.fillStyle = isNear ? '#555' : block.baseColor;
+          ctx.fillStyle = isNear ? (isLight ? '#888' : '#555') : block.baseColor;
           ctx.shadowBlur = 0;
         }
 
