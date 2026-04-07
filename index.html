@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Jungle - Find the Hidden Words</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      background: #0a0a0f;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
+    
+    h1 {
+      color: #fff;
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    
+    .subtitle {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    #canvas {
+      border: 1px solid #222;
+      border-radius: 8px;
+    }
+    
+    .score {
+      position: fixed;
+      top: 2rem;
+      right: 2rem;
+      color: #fff;
+      font-size: 1.2rem;
+    }
+    
+    .score span { color: #4ade80; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>🕵️ Text Jungle</h1>
+  <p class="subtitle">Find and hover over special words to reveal them</p>
+  <canvas id="canvas" width="900" height="600"></canvas>
+  <div class="score">Found: <span id="found">0</span> / <span id="total">0</span></div>
+
+  <script type="module">
+    import { prepare, layout } from 'https://esm.sh/@chenglou/pretext@0.0.4/dist/layout.js';
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const foundEl = document.getElementById('found');
+    const totalEl = document.getElementById('total');
+
+    const FONT = '16px Inter';
+    const LINE_HEIGHT = 22;
+
+    const textBlocks = [];
+    let mouseX = -1000;
+    let mouseY = -1000;
+    let foundCount = 0;
+
+    const words = [
+      'lorem ipsum dolor sit amet',
+      'consectetur adipiscing elit',
+      'sed do eiusmod tempor',
+      'incididunt ut labore et',
+      'dolore magna aliqua',
+      'ut enim ad minim veniam',
+      'quis nostrud exercitation',
+      'ullamco laboris nisi',
+      'ex ea commodo consequat',
+      'duis aute irure dolor',
+      'reprehenderit in voluptate',
+      'velit esse cillum dolore',
+      'eu fugiat nulla pariatur',
+      'excepteur sint occaecat',
+      'cupidatat non proident',
+      'sunt in culpa qui officia',
+      'deserunt mollit anim id',
+      'est laborum sed ut',
+      'perspiciatis unde omnis',
+      'iste natus error sit',
+      'voluptatem accusantium',
+      'doloremque laudantium',
+      'totam rem aperiam',
+      'eaque ipsa quae ab illo',
+      'inventore veritatis et',
+      'quasi architecto beatae',
+      'vitae dicta sunt',
+      'explicabo nemo enim',
+      'ipsam voluptatem quia',
+      'voluptas sit aspernatur',
+      'aut odit aut fugit',
+      'sed quia consequuntur',
+      'magni dolores eos',
+      'qui ratione voluptatem',
+      'sequi nesciunt neque',
+      'porro quisquam est qui',
+      'dolorem ipsum quia',
+      'dolor sit amet',
+      'adipisci velit sed quia',
+      'non numquam eius modi',
+      'tempora incidunt ut labore',
+      'dolore magnam aliquam',
+      'quaerat voluptatem ut',
+      'enim ad minima veniam',
+      'quis nostrum',
+      'exercitationem ullam',
+      'corporis suscipit',
+      'laboriosam nisi ut aliquid',
+      'ex ea commodi',
+      'consequatur quis autem',
+      'vel eum iure',
+      'reprehenderit qui in ea',
+      'voluptate velit esse',
+      'quam nihil molestiae',
+      'consequatur vel illum',
+      'qui dolorem eum fugiat',
+      'quo voluptas nulla',
+      'pariatur at vero eos',
+      'et accusamus officiis',
+      'debitis aut rerum',
+      'necessitatibus saepe',
+      'eveniet ut et',
+      'voluptates repudiandae',
+      'sint et molestiae',
+      'non recusandae',
+      'itaque earum rerum',
+      'hic tenetur sapiente',
+      'deleniti atque corrupti',
+      'quos dolores et',
+      'quas molestias',
+      'excepturi sint occaecati',
+      'cupiditate non provident',
+      'similique sunt in culpa',
+      'qui officia deserunt',
+      'mollitia animi id est',
+      'laborum et dolorum',
+      'fuga et harum quidem',
+      'rerum facilis est',
+      'expedita distinctio',
+      'nam libero tempore',
+      'cum soluta nobis',
+      'est eligendi optio',
+      'cumque nihil impedit',
+      'quo minus id quod',
+      'maxime placeat facere',
+      'possimus omnis voluptas',
+      'assumenda est omnis',
+      'repellendus temporibus',
+      'autem quibusdam',
+      'officiis debitis aut',
+      'rerum necessitatibus',
+      'saepe eveniet',
+      'voluptates repellendus',
+      'repellat fugit et',
+    ];
+
+    function randomColor() {
+      const hues = [210, 280, 150, 30, 340, 200, 50, 270];
+      const hue = hues[Math.floor(Math.random() * hues.length)];
+      return `hsl(${hue}, 55%, ${25 + Math.random() * 15}%)`;
+    }
+
+    function randomGlowColor() {
+      const colors = ['#4ade80', '#f472b6', '#60a5fa', '#fbbf24', '#a78bfa'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    async function init() {
+      const preparedTexts = await Promise.all(
+        [...new Set(words)].map(async (text) => {
+          const handle = await prepare(text, FONT);
+          return { handle, text };
+        })
+      );
+
+      for (let i = 0; i < 80; i++) {
+        const isSpecial = Math.random() < 0.08;
+        const prepared = preparedTexts[Math.floor(Math.random() * preparedTexts.length)];
+        
+        const width = 120 + Math.random() * 180;
+        const { height, lineCount } = layout(prepared.handle, width, LINE_HEIGHT);
+
+        const textData = {
+          handle: prepared.handle,
+          text: prepared.text,
+          baseX: 30 + Math.random() * (canvas.width - width - 60),
+          baseY: 30 + Math.random() * (canvas.height - height - 60),
+          x: 0,
+          y: 0,
+          baseWidth: width,
+          baseHeight: height,
+          width,
+          height,
+          lineCount,
+          baseColor: randomColor(),
+          isSpecial,
+          found: false,
+          glowColor: randomGlowColor(),
+          vx: 0,
+          vy: 0,
+        };
+        textData.x = textData.baseX;
+        textData.y = textData.baseY;
+
+        let overlaps = false;
+        for (const existing of textBlocks) {
+          if (textData.baseX < existing.baseX + existing.baseWidth + 15 &&
+              textData.baseX + textData.baseWidth + 15 > existing.baseX &&
+              textData.baseY < existing.baseY + existing.baseHeight + 15 &&
+              textData.baseY + textData.baseHeight + 15 > existing.baseY) {
+            overlaps = true;
+            break;
+          }
+        }
+
+        if (!overlaps) {
+          textBlocks.push(textData);
+        }
+      }
+
+      totalEl.textContent = textBlocks.filter(t => t.isSpecial).length;
+      requestAnimationFrame(animate);
+    }
+
+    function animate(time) {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (const block of textBlocks) {
+        const dx = mouseX - (block.x + block.baseWidth / 2);
+        const dy = mouseY - (block.y + block.height / 2);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < 100 && dist > 0) {
+          const force = (100 - dist) / 100;
+          const angle = Math.atan2(dy, dx);
+          const pushStrength = 8;
+          
+          block.vx -= Math.cos(angle) * force * pushStrength;
+          block.vy -= Math.sin(angle) * force * pushStrength;
+        }
+
+        block.vx *= 0.92;
+        block.vy *= 0.92;
+
+        const returnStrength = 0.05;
+        block.vx += (block.baseX - block.x) * returnStrength;
+        block.vy += (block.baseY - block.y) * returnStrength;
+
+        block.x += block.vx;
+        block.y += block.vy;
+
+        block.x = Math.max(10, Math.min(canvas.width - block.baseWidth - 10, block.x));
+        block.y = Math.max(10, Math.min(canvas.height - block.height - 10, block.y));
+
+        ctx.font = FONT;
+        ctx.textBaseline = 'top';
+
+        const isNear = dist < 100;
+
+        if (block.isSpecial && !block.found) {
+          const pulse = Math.sin(time * 0.006 + block.baseX * 0.1) * 0.5 + 0.5;
+          
+          if (isNear) {
+            ctx.shadowColor = block.glowColor;
+            ctx.shadowBlur = 25 + pulse * 15;
+            ctx.fillStyle = block.glowColor;
+            
+            if (dist < 40) {
+              block.found = true;
+              foundCount++;
+              foundEl.textContent = foundCount;
+              
+              if (foundCount === textBlocks.filter(t => t.isSpecial).length) {
+                setTimeout(() => alert('🎉 Congratulations! You found all hidden words!'), 100);
+              }
+            }
+          } else {
+            ctx.fillStyle = '#2a2a35';
+            ctx.shadowBlur = 0;
+          }
+        } else if (block.isSpecial && block.found) {
+          const pulse = Math.sin(time * 0.008) * 0.5 + 0.5;
+          ctx.shadowColor = block.glowColor;
+          ctx.shadowBlur = 15 + pulse * 10;
+          ctx.fillStyle = block.glowColor;
+        } else {
+          ctx.fillStyle = isNear ? '#888' : block.baseColor;
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.fillText(block.text, block.x, block.y);
+        ctx.shadowBlur = 0;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      mouseX = -1000;
+      mouseY = -1000;
+    });
+
+    init();
+  </script>
+</body>
+</html>
